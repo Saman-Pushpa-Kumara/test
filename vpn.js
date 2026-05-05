@@ -54,16 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function attachClickEvents() {
         const spinner = document.getElementById('loadingSpinner');
-
-        // Video.js Player එක Initialize කිරීම
-        if (!window.vjsPlayer) {
-            window.vjsPlayer = videojs('vjs-video', {
-                fluid: false,
-                autoplay: false,
-                controls: true,
-                preload: 'auto'
-            });
-        }
+        const videoElement = document.getElementById('hls-video'); // අලුත් Player එක
 
         document.querySelectorAll('.vpn-free-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -76,23 +67,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const streamUrl = btn.getAttribute('data-url');
                 
-                // Shaka Player Hide කර Video.js Show කිරීම
-                if(typeof window.switchToVideoJs === 'function'){
-                    window.switchToVideoJs();
+                // Shaka Player Hide කර HTML5 Player එක Show කිරීම
+                if(typeof window.switchToHlsPlayer === 'function'){
+                    window.switchToHlsPlayer();
                 }
 
                 if (spinner) spinner.style.display = 'block';
 
-                // Video.js හි කලින් තිබූ Errors මකා දැමීම
-                window.vjsPlayer.error(null);
-
-                // Video.js ඇතුලත ඇති HTML5 <video> element එක ලබා ගැනීම
-                const videoElement = window.vjsPlayer.tech().el();
-
-                // Hls.js භාවිතයෙන් Playback කිරීම (Video.js Errors මගහැරීම සඳහා)
+                // පිරිසිදු Hls.js ක්‍රමය භාවිතා කිරීම
                 if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                     if (window.hls) {
-                        window.hls.destroy();
+                        window.hls.destroy(); // පරණ Stream එක නවතා දැමීම
                     }
                     
                     window.hls = new Hls({
@@ -104,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.hls.attachMedia(videoElement);
                     
                     window.hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        window.vjsPlayer.play().then(() => {
+                        videoElement.play().then(() => {
                             if (spinner) spinner.style.display = 'none';
                         }).catch(err => {
                             console.warn("Autoplay blocked:", err);
@@ -126,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 default:
                                     window.hls.destroy();
                                     if (spinner) spinner.style.display = 'none';
-                                    alert("නාලිකාව වාදනය කිරීමට නොහැක. (Stream Offline හෝ අවහිර කර ඇත)");
+                                    alert("නාලිකාව වාදනය කිරීමට නොහැක. (Stream Offline)");
                                     break;
                             }
                         }
@@ -134,19 +119,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
                     // Apple/iOS Devices සඳහා (Native Support)
-                    window.vjsPlayer.src({
-                        src: streamUrl,
-                        type: 'application/x-mpegURL'
-                    });
-                    
-                    window.vjsPlayer.ready(function() {
-                        window.vjsPlayer.play().then(() => {
+                    videoElement.src = streamUrl;
+                    videoElement.addEventListener('loadedmetadata', function() {
+                        videoElement.play().then(() => {
                             if (spinner) spinner.style.display = 'none';
                         }).catch(e => {
                             if (spinner) spinner.style.display = 'none';
                         });
                     });
-                    
                 } else {
                     if (spinner) spinner.style.display = 'none';
                     alert("ඔබගේ Browser එක සහය නොදක්වයි.");
