@@ -1,17 +1,20 @@
 document.getElementById('player-root').innerHTML = `
-    <div class="video-wrapper" style="position: relative;">
+    <div class="video-wrapper" style="position: relative; width: 100%; height: 100%; background: #000;">
         <!-- Shaka Player Container (Main Channels) -->
-        <div id="shaka-container" data-shaka-player-container style="display: block; width: 100%; height: 100%; position: absolute; top:0; left:0;">
+        <div id="shaka-container" data-shaka-player-container style="display: block; width: 100%; height: 100%; position: absolute; top:0; left:0; z-index: 1;">
             <video data-shaka-player id="video" autoplay playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
         </div>
 
         <!-- Pure HTML5 HLS Container (VPN Free Channels සඳහා) -->
-        <div id="hls-container" style="display: none; width: 100%; height: 100%; position: absolute; top:0; left:0; background: #000;">
-            <video id="hls-video" controls autoplay playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
+        <div id="hls-container" style="display: none; width: 100%; height: 100%; position: absolute; top:0; left:0; background: #000; z-index: 2;">
+            <video id="hls-video" controls playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
         </div>
 
-        <div id="loadingSpinner" class="loading-spinner"></div>
-        <div class="ultraflix-watermark" id="ultraflixWatermark">
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="loading-spinner" style="z-index: 3;"></div>
+        
+        <!-- Watermark -->
+        <div class="ultraflix-watermark" id="ultraflixWatermark" style="z-index: 4;">
             <div class="uf-powered">Powered by</div>
             <div class="uf-brand">B-2 TECH</div>
         </div>
