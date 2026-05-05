@@ -1,13 +1,13 @@
 document.getElementById('player-root').innerHTML = `
-    <div class="video-wrapper">
+    <div class="video-wrapper" style="position: relative;">
         <!-- Shaka Player Container (Main Channels) -->
-        <div id="shaka-container" data-shaka-player-container style="display: block; width: 100%; height: 100%;">
-            <video data-shaka-player id="video" autoplay playsinline style="width: 100%; height: 100%;"></video>
+        <div id="shaka-container" data-shaka-player-container style="display: block; width: 100%; height: 100%; position: absolute; top:0; left:0;">
+            <video data-shaka-player id="video" autoplay playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
         </div>
 
-        <!-- Video.js Container (VPN Free Channels) -->
-        <div id="vjs-container" style="display: none; width: 100%; height: 100%;">
-            <video id="vjs-video" class="video-js vjs-default-skin vjs-big-play-centered" controls autoplay playsinline style="width: 100%; height: 100%;"></video>
+        <!-- Pure HTML5 HLS Container (VPN Free Channels සඳහා) -->
+        <div id="hls-container" style="display: none; width: 100%; height: 100%; position: absolute; top:0; left:0; background: #000;">
+            <video id="hls-video" controls autoplay playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
         </div>
 
         <div id="loadingSpinner" class="loading-spinner"></div>
@@ -18,10 +18,10 @@ document.getElementById('player-root').innerHTML = `
     </div>
 `;
 
-// Functions to switch players
-window.switchToVideoJs = function() {
+// Switch to Pure HLS Player (VPN Free Channels)
+window.switchToHlsPlayer = function() {
     document.getElementById('shaka-container').style.display = 'none';
-    document.getElementById('vjs-container').style.display = 'block';
+    document.getElementById('hls-container').style.display = 'block';
     
     // Stop Shaka Player
     const shakaVid = document.getElementById('video');
@@ -33,26 +33,34 @@ window.switchToVideoJs = function() {
     }
 };
 
+// Switch back to Shaka Player (Normal Channels)
 window.switchToShaka = function() {
-    document.getElementById('vjs-container').style.display = 'none';
+    document.getElementById('hls-container').style.display = 'none';
     document.getElementById('shaka-container').style.display = 'block';
     
-    // Stop Video.js
-    if (window.vjsPlayer) {
-        window.vjsPlayer.pause();
+    // Stop Native HLS Video
+    const hlsVid = document.getElementById('hls-video');
+    if (hlsVid) {
+        hlsVid.pause();
+        hlsVid.removeAttribute('src'); // Clean Source
+        hlsVid.load();
+    }
+    // Destroy existing HLS instance
+    if (window.hls) {
+        window.hls.destroy();
+        window.hls = null;
     }
 };
 
-// Global Listener: When a normal channel (not vpn-free) is clicked, switch back to Shaka Player
+// Global Listener: වෙනත් (සාමාන්‍ය) නාලිකාවක් click කළ විට නැවත Shaka Player එක පෙන්වීමට
 document.addEventListener('click', function(e) {
     const channelCard = e.target.closest('.channel-card');
-    // If a channel card is clicked and it's NOT a vpn-free button
     if (channelCard && !channelCard.classList.contains('vpn-free-btn')) {
         window.switchToShaka();
     }
 });
 
-// Watermark Display Logic for Player
+// Watermark Display Logic
 setInterval(() => { 
     const controls = document.querySelector('.shaka-controls-container'); 
     const watermark = document.getElementById('ultraflixWatermark'); 
