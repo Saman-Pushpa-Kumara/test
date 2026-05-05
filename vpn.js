@@ -56,6 +56,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const spinner = document.getElementById('loadingSpinner');
         const videoElement = document.getElementById('hls-video'); // අලුත් Player එක
 
+        // Video Play වනවිට Loading එක Hide වීම
+        videoElement.addEventListener('playing', () => {
+            if (spinner) spinner.style.display = 'none';
+        });
+
+        // Video Buffer වනවිට Loading එක පෙන්වීම
+        videoElement.addEventListener('waiting', () => {
+            if (spinner) spinner.style.display = 'block';
+        });
+
         document.querySelectorAll('.vpn-free-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -74,29 +84,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (spinner) spinner.style.display = 'block';
 
-                // පිරිසිදු Hls.js ක්‍රමය භාවිතා කිරීම
+                // පරණ Video Data මකා දැමීම
+                videoElement.pause();
+                videoElement.removeAttribute('src');
+                videoElement.load();
+
                 if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                     if (window.hls) {
-                        window.hls.destroy(); // පරණ Stream එක නවතා දැමීම
+                        window.hls.destroy(); 
                     }
                     
                     window.hls = new Hls({
                         maxBufferLength: 30,
                         maxMaxBufferLength: 60,
+                        lowLatencyMode: false // Proxy streams සඳහා මෙය False කර තැබීම යහපත්
                     });
                     
-                    window.hls.loadSource(streamUrl);
+                    // 1. පලමුව Media Attach කිරීම
                     window.hls.attachMedia(videoElement);
                     
+                    // 2. Attach වූ පසුව පමණක් Source එක Load කිරීම (බොහෝ Errors මෙයින් මගහැරේ)
+                    window.hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+                        window.hls.loadSource(streamUrl);
+                    });
+                    
+                    // 3. Manifest සූදානම් වූ පසු Play කිරීම
                     window.hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        videoElement.play().then(() => {
-                            if (spinner) spinner.style.display = 'none';
-                        }).catch(err => {
+                        videoElement.play().catch(err => {
                             console.warn("Autoplay blocked:", err);
-                            if (spinner) spinner.style.display = 'none';
                         });
                     });
                     
+                    // 4. Errors පැමිණියොත්
                     window.hls.on(Hls.Events.ERROR, function(event, data) {
                         if (data.fatal) {
                             switch(data.type) {
@@ -118,14 +137,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
 
                 } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-                    // Apple/iOS Devices සඳහා (Native Support)
+                    // Apple/iOS Devices සඳහා
                     videoElement.src = streamUrl;
-                    videoElement.addEventListener('loadedmetadata', function() {
-                        videoElement.play().then(() => {
-                            if (spinner) spinner.style.display = 'none';
-                        }).catch(e => {
-                            if (spinner) spinner.style.display = 'none';
-                        });
+                    videoElement.play().catch(e => {
+                        console.warn(e);
                     });
                 } else {
                     if (spinner) spinner.style.display = 'none';
