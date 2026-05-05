@@ -59,14 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!window.vjsPlayer) {
             window.vjsPlayer = videojs('vjs-video', {
                 fluid: false,
-                autoplay: true,
+                autoplay: false,
                 controls: true,
-                preload: 'auto',
-                html5: {
-                    vhs: {
-                        overrideNative: !videojs.browser.IS_SAFARI // Safari/iOS වල Native Playback ලබාදීම
-                    }
-                }
+                preload: 'auto'
             });
         }
 
@@ -81,32 +76,81 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const streamUrl = btn.getAttribute('data-url');
                 
-                // Shaka Player Hide කර Video.js Show කිරීම (player.js හි ඇති function එක භාවිතයෙන්)
+                // Shaka Player Hide කර Video.js Show කිරීම
                 if(typeof window.switchToVideoJs === 'function'){
                     window.switchToVideoJs();
                 }
 
                 if (spinner) spinner.style.display = 'block';
 
-                // Video.js හරහා HLS stream එක Load කිරීම
-                window.vjsPlayer.src({
-                    src: streamUrl,
-                    type: 'application/x-mpegURL'
-                });
+                // Video.js හි කලින් තිබූ Errors මකා දැමීම
+                window.vjsPlayer.error(null);
 
-                window.vjsPlayer.ready(function() {
-                    window.vjsPlayer.play().then(() => {
-                        if (spinner) spinner.style.display = 'none';
-                    }).catch(err => {
-                        console.warn("Autoplay blocked:", err);
-                        if (spinner) spinner.style.display = 'none';
+                // Video.js ඇතුලත ඇති HTML5 <video> element එක ලබා ගැනීම
+                const videoElement = window.vjsPlayer.tech().el();
+
+                // Hls.js භාවිතයෙන් Playback කිරීම (Video.js Errors මගහැරීම සඳහා)
+                if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                    if (window.hls) {
+                        window.hls.destroy();
+                    }
+                    
+                    window.hls = new Hls({
+                        maxBufferLength: 30,
+                        maxMaxBufferLength: 60,
                     });
-                });
+                    
+                    window.hls.loadSource(streamUrl);
+                    window.hls.attachMedia(videoElement);
+                    
+                    window.hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        window.vjsPlayer.play().then(() => {
+                            if (spinner) spinner.style.display = 'none';
+                        }).catch(err => {
+                            console.warn("Autoplay blocked:", err);
+                            if (spinner) spinner.style.display = 'none';
+                        });
+                    });
+                    
+                    window.hls.on(Hls.Events.ERROR, function(event, data) {
+                        if (data.fatal) {
+                            switch(data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    console.warn("HLS Network Error, Retrying...");
+                                    window.hls.startLoad();
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    console.warn("HLS Media Error, Recovering...");
+                                    window.hls.recoverMediaError(); 
+                                    break;
+                                default:
+                                    window.hls.destroy();
+                                    if (spinner) spinner.style.display = 'none';
+                                    alert("නාලිකාව වාදනය කිරීමට නොහැක. (Stream Offline හෝ අවහිර කර ඇත)");
+                                    break;
+                            }
+                        }
+                    });
 
-                window.vjsPlayer.on('error', function() {
+                } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Apple/iOS Devices සඳහා (Native Support)
+                    window.vjsPlayer.src({
+                        src: streamUrl,
+                        type: 'application/x-mpegURL'
+                    });
+                    
+                    window.vjsPlayer.ready(function() {
+                        window.vjsPlayer.play().then(() => {
+                            if (spinner) spinner.style.display = 'none';
+                        }).catch(e => {
+                            if (spinner) spinner.style.display = 'none';
+                        });
+                    });
+                    
+                } else {
                     if (spinner) spinner.style.display = 'none';
-                    alert("නාලිකාව වාදනය කිරීමට නොහැක. (Stream Offline)");
-                });
+                    alert("ඔබගේ Browser එක සහය නොදක්වයි.");
+                }
             });
         });
     }
